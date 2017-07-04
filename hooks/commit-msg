@@ -1,5 +1,5 @@
-#!/bin/sh
-# From Gerrit Code Review 2.12.1
+#!/bin/bash
+# From Gerrit Code Review 2.13.5
 #
 # Part of Gerrit Code Review (https://www.gerritcodereview.com/)
 #
@@ -20,8 +20,57 @@
 
 unset GREP_OPTIONS
 
-CHANGE_ID_AFTER="Bug|Issue|Test"
+CHANGE_ID_AFTER="Bug|Issue|Test|Feature|Fixes|Fixed"
 MSG="$1"
+
+# START: new add by steven for commit-msg format verify.
+error()
+{
+    printf -- "ERROR: $*\n" >&2
+    exit 1
+}
+
+format_verify()
+{
+	comment_pat='^#'
+	reference_pat='^\[[[:digit:]]\]'
+	subject_start_ADD='^ADD: '
+	subject_start_FIX='^FIX: '
+	subject_start_MOD='^MOD: '
+	subject_bad_end_pat='[[:punct:]]$'
+	
+	line_num=0
+	while IFS= read -r line || [[ -n "$line" ]]; do
+	    [[ $line =~ $comment_pat ]] && continue
+	    [[ $line =~ $reference_pat ]] && continue
+	
+	    line_num=$((line_num+1))
+	    length=${#line}
+	    if [[ $line_num -eq 1 ]]; then
+	    
+	    		[[ $line =~ $subject_start_ADD ]] ||
+	    		[[ $line =~ $subject_start_FIX ]] ||
+	    		[[ $line =~ $subject_start_MOD ]] ||
+	    				error "Subjuct starter must be "\"ADD:\ \"" or "\"FIX:\ \"" or "\"MOD:\ \"""!
+	    				
+	        [[ $length -gt 50 ]] && 
+	            error "Subject line exceeds 50 characters"
+	
+	        [[ $line =~ $subject_bad_end_pat ]] &&
+	            error "Subject line terminated by punctuation"
+	
+	    elif [[ $line_num -eq 2 ]]; then
+	        [[ $length -ne 0 ]] &&
+	            error "Subject line followed by non-empty line"
+	
+	    else
+	        [[ $length -gt 72 ]] &&
+	            error "line $line_num exceeds 72 characters"
+	    fi
+	done < "$MSG"
+}
+
+# END: new add by steven for commit-msg format verify.
 
 # Check for, and add if missing, a unique Change-Id
 #
@@ -187,5 +236,5 @@ _gen_ChangeId() {
 	git hash-object -t commit --stdin
 }
 
-
+format_verify
 add_ChangeId
